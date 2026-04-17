@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+    <title>NEURA POWER</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <style>
+        :root { --accent: #3b82f6; --success: #10b981; --danger: #ef4444; --bg: #020617; --card: rgba(30, 41, 59, 0.7); --border: rgba(255, 255, 255, 0.1); }
+        * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: radial-gradient(circle at top, #1e293b, var(--bg)); color: #f1f5f9; margin: 0; padding-bottom: 100px; }
+        .nav { position: fixed; bottom: 20px; left: 20px; right: 20px; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 24px; padding: 12px; display: flex; justify-content: space-around; z-index: 1000; }
+        .nav button { background: none; border: none; color: #94a3b8; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; cursor: pointer; }
+        .nav button.active { color: var(--accent); }
+        .card { background: var(--card); backdrop-filter: blur(15px); border: 1px solid var(--border); border-radius: 24px; padding: 20px; margin: 15px; }
+        .label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px; }
+        .q-btn { padding: 18px; border-radius: 20px; border: 1px solid; font-weight: 800; cursor: pointer; }
+        .off { background: rgba(239, 68, 68, 0.15); border-color: var(--danger); color: #fca5a5; }
+        .on { background: rgba(16, 185, 129, 0.15); border-color: var(--success); color: #a7f3d0; }
+        input, select { background: #0f172a; border: 1px solid var(--border); color: white; padding: 12px; border-radius: 12px; width: 100%; margin-top: 5px; }
+        .page { display: none; } .active-page { display: block; }
+    </style>
+</head>
+<body>
+
+<div style="text-align:center; padding: 20px 0 5px;">
+    <h2 style="margin:0; letter-spacing: 2px; color: #fff;">NEURA <span style="color:var(--accent)">POWER</span></h2>
+</div>
+
+<div id="home" class="page active-page">
+    <div class="card" style="border-bottom: 4px solid var(--accent);">
+        <span class="label">Current State</span>
+        <span id="current-status-text" style="font-size: 24px; font-weight: 800; display: block;">READY</span>
+        <span id="current-duration" style="font-size: 13px; color: #cbd5e1;">No data found</span>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 15px 0; font-size:16px;">Last Activity Details</h3>
+        <div style="border-left: 4px solid var(--danger); padding-left: 15px; margin-bottom: 15px;">
+            <div class="label">Last Power Cut (OFF Time)</div>
+            <div id="last-off-gap" style="font-size: 20px; font-weight: 700; color: #fca5a5;">0m</div>
+        </div>
+        <div style="border-left: 4px solid var(--success); padding-left: 15px;">
+            <div class="label">Last Power Uptime (ON Time)</div>
+            <div id="last-on-gap" style="font-size: 20px; font-weight: 700; color: #a7f3d0;">0m</div>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button onclick="logData('off')" class="q-btn off">🔴 RECORD OFF</button>
+        <button onclick="logData('on')" class="q-btn on">🟢 RECORD ON</button>
+    </div>
+
+    <div class="card">
+        <h3 style="margin:0 0 10px 0; font-size:15px;">Manual Entry</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div><label class="label">Status</label><select id="m-status"><option value="off">Power Cut</option><option value="on">Restored</option></select></div>
+            <div><label class="label">Time</label><input type="time" id="m-time"></div>
+        </div>
+        <button onclick="addManual()" style="width:100%; margin-top:15px; background:var(--accent); border:none; color:white; padding:12px; border-radius:12px; font-weight:bold;">SAVE DATA</button>
+    </div>
+</div>
+
+<div id="analytics" class="page">
+    <div class="card">
+        <h3>Power Distribution</h3>
+        <div style="height: 250px; display: flex; justify-content: center;"><canvas id="pChart"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>Today's Totals</h3>
+        <div style="display: flex; justify-content: space-around; text-align: center;">
+            <div><span class="label">Total ON</span><br><span id="sum-on" style="color:var(--success); font-size:18px; font-weight:bold;">0h 0m</span></div>
+            <div><span class="label">Total OFF</span><br><span id="sum-off" style="color:var(--danger); font-size:18px; font-weight:bold;">0h 0m</span></div>
+        </div>
+    </div>
+</div>
+
+<div id="history" class="page">
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0;">Activity Logs</h3>
+            <button onclick="clearAll()" style="color:var(--danger); background:none; border:none; font-size:12px;">Reset</button>
+        </div>
+        <div id="log-list"></div>
+    </div>
+</div>
+
+<div class="nav">
+    <button onclick="nav('home')" class="active"><i class="fas fa-home"></i><span>Dash</span></button>
+    <button onclick="nav('analytics')"><i class="fas fa-chart-pie"></i><span>Chart</span></button>
+    <button onclick="nav('history')"><i class="fas fa-history"></i><span>Logs</span></button>
+</div>
+
+<script>
+let db = JSON.parse(localStorage.getItem('np_final_v7')) || [];
+
+function nav(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+    document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active-page');
+    event.currentTarget.classList.add('active');
+    if(id === 'analytics') renderChart();
+    if(id === 'history') renderHistory();
+}
+
+function logData(status, manualTime = null) {
+    const now = new Date();
+    let ts;
+    if(manualTime) {
+        const [h, m] = manualTime.split(':');
+        ts = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m).getTime();
+    } else {
+        ts = now.getTime();
+    }
+    
+    db.push({ id: Date.now(), status, ts, time: new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) });
+    db.sort((a,b) => a.ts - b.ts);
+    localStorage.setItem('np_final_v7', JSON.stringify(db));
+    updateEverything();
+}
+
+function addManual() {
+    const t = document.getElementById('m-time').value;
+    if(!t) return alert("Select Time!");
+    logData(document.getElementById('m-status').value, t);
+    alert("Record Saved!");
+}
+
+function updateEverything() {
+    let totalOffM = 0; 
+    let totalOnM = 0;
+    let lastOffGap = "0m"; 
+    let lastOnGap = "0m";
+
+    for(let i=0; i < db.length - 1; i++) {
+        let diff = (db[i+1].ts - db[i].ts) / 60000;
+        
+        // --- FIXED LOGIC ---
+        if(db[i].status === 'off') {
+            // OFF theke ON porjonto somoyta holo "Power Cut" (OFF Duration)
+            totalOffM += diff;
+            lastOffGap = formatTime(diff);
+        } else if(db[i].status === 'on') {
+            // ON theke OFF porjonto somoyta holo "Current Chilo" (ON Duration)
+            totalOnM += diff;
+            lastOnGap = formatTime(diff);
+        }
+    }
+
+    document.getElementById('last-off-gap').innerText = lastOffGap;
+    document.getElementById('last-on-gap').innerText = lastOnGap;
+    document.getElementById('sum-off').innerText = formatTime(totalOffM);
+    document.getElementById('sum-on').innerText = formatTime(totalOnM);
+
+    const last = db[db.length-1];
+    if(last) {
+        document.getElementById('current-status-text').innerText = `POWER IS ${last.status.toUpperCase()}`;
+        document.getElementById('current-status-text').style.color = last.status === 'off' ? 'var(--danger)' : 'var(--success)';
+        document.getElementById('current-duration').innerText = `Since ${last.time}`;
+    }
+}
+
+function formatTime(mins) {
+    const h = Math.floor(mins/60);
+    const m = Math.round(mins%60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function renderChart() {
+    const ctx = document.getElementById('pChart').getContext('2d');
+    let off = 0, on = 0;
+    for(let i=0; i<db.length-1; i++) {
+        let diff = (db[i+1].ts - db[i].ts) / 60000;
+        if(db[i].status === 'off') off += diff; else on += diff;
+    }
+    if(window.myChart) window.myChart.destroy();
+    window.myChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: { labels: ['OFF (Cut)', 'ON (Uptime)'], datasets: [{ data: [off || 1, on || 1], backgroundColor: ['#ef4444', '#10b981'], borderWidth: 0 }] },
+        options: { cutout: '75%', plugins: { legend: { position: 'bottom', labels: { color: 'white' } } } }
+    });
+}
+
+function renderHistory() {
+    const list = document.getElementById('log-list');
+    list.innerHTML = [...db].reverse().map(e => `
+        <div style="background:rgba(255,255,255,0.03); padding:15px; border-radius:15px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; border:1px solid var(--border);">
+            <div><b style="color:${e.status === 'on' ? 'var(--success)' : 'var(--danger)'}">${e.status.toUpperCase()}</b><div style="font-size:10px; color:#64748b;">${e.time}</div></div>
+            <button onclick="del(${e.id})" style="color:var(--danger); background:none; border:none;"><i class="fas fa-trash"></i></button>
+        </div>
+    `).join('') || '<p style="text-align:center;">No records</p>';
+}
+
+function del(id) { db = db.filter(i => i.id !== id); localStorage.setItem('np_final_v7', JSON.stringify(db)); renderHistory(); updateEverything(); }
+function clearAll() { if(confirm("Clear everything?")) { localStorage.clear(); location.reload(); } }
+
+updateEverything();
+</script>
+</body>
+</html>
